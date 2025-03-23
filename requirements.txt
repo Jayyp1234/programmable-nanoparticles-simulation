@@ -1,11 +1,6 @@
-# Description: This file contains the required libraries for the project.
-
-# Optional (for exporting plots/images if needed)
-kaleido==0.2.1
-
-# Optional (for scientific calculations and modeling, if you expand)
-scipy==1.10.1
-
 streamlit==1.24.0
+numpy==1.24.3
+pandas==1.5.3
+matplotlib==3.7.1
 plotly==5.16.1
-matplotlib==3.4.3
+kaleido==0.2.1
