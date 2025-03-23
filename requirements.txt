@@ -1,0 +1,16 @@
+# Core Libraries
+numpy==1.24.3
+pandas==1.5.3
+
+# Visualization
+matplotlib==3.7.1
+plotly==5.16.1
+
+# Interactive Web App Framework
+streamlit==1.26.0
+
+# Optional (for exporting plots/images if needed)
+kaleido==0.2.1
+
+# Optional (for scientific calculations and modeling, if you expand)
+scipy==1.10.1
