@@ -1,109 +1,70 @@
-# smart_drilling_mud_simulation.py
-
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import odeint
 
-# -------------------------------
-# ENVIRONMENTAL PARAMETERS MODULE
-# -------------------------------
+# Simulation parameters
+shear_rate = np.linspace(1, 200, 100)
+D0 = 50  # Initial diameter (nm)
+tau_y_base, K, n, beta = 5, 0.02, 0.7, 0.01
 
-class Environment:
-    def __init__(self, depth, pressure, temperature, pH):
-        self.depth = depth
-        self.pressure = pressure
-        self.temperature = temperature
-        self.pH = pH
+# Define single stimuli responses clearly based on literature
+# pH-sensitive (Zamora-Ledezma et al., 2022)
+def nanoparticle_pH(pH):
+    kpH = 0.02
+    return D0 * (1 + kpH * (pH - 7))
 
-# -------------------------------
-# NANOPARTICLE KINETICS MODULE
-# -------------------------------
+# Thermo-responsive (Mahmoud et al., 2017)
+def nanoparticle_temp(temp):
+    kT = 0.02
+    return D0 * (1 + kT * (temp - 90)/90)
 
-class Nanoparticle:
-    def __init__(self, rate_constant=0.05, ref_temp=80, max_expansion=1.4):
-        self.k = rate_constant
-        self.T_ref = ref_temp
-        self.S_max = max_expansion
+# Pressure-activated (Gerogiorgis et al., 2017)
+def nanoparticle_pressure(pressure):
+    kP = 0.015
+    return D0 * (1 + kP * (pressure - 5000)/10000)
 
-    def kinetics(self, S, t, T):
-        """Swelling rate as function of temperature"""
-        dSdt = self.k * (T - self.T_ref) * (1 - S / self.S_max)
-        return dSdt
+# Rheology function
+def rheology(D):
+    tau_y = tau_y_base * (1 + 0.4 * (D - D0) / D0)
+    tau = tau_y + K * shear_rate ** n * (1 + beta * (D - D0))
+    return tau
 
-# -------------------------------
-# FLUID RHEOLOGY MODEL MODULE
-# -------------------------------
+# Simulate responses
+pH_values = [6, 7, 8, 9]
+temp_values = [60, 90, 120, 150]
+pressure_values = [3000, 5000, 7000, 9000]
 
-class FluidRheology:
-    def __init__(self, base_yield_stress=50, consistency_index=0.1, flow_behavior_index=0.8):
-        self.base_yield_stress = base_yield_stress  # τ₀
-        self.consistency_index = consistency_index  # k
-        self.flow_behavior_index = flow_behavior_index  # n
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
-    def yield_stress(self, nanoparticle_state, influence_coefficient=20):
-        """Adjust yield stress based on nanoparticle state (swelling/expansion)"""
-        return self.base_yield_stress + influence_coefficient * (nanoparticle_state - 1.0)
+# pH Response
+for pH in pH_values:
+    D = nanoparticle_pH(pH)
+    tau = rheology(D)
+    axes[0].plot(shear_rate, tau, label=f'pH {pH}')
+axes[0].set_title('Nanoparticle Response to pH Change')
+axes[0].set_xlabel('Shear Rate (1/s)')
+axes[0].set_ylabel('Shear Stress (Pa)')
+axes[0].legend()
+axes[0].grid()
 
-    def shear_stress(self, shear_rate, nanoparticle_state):
-        """Herschel-Bulkley shear stress model"""
-        τ_y = self.yield_stress(nanoparticle_state)
-        τ = τ_y + self.consistency_index * (shear_rate ** self.flow_behavior_index)
-        return τ
+# Temperature Response
+for temp in temp_values:
+    D = nanoparticle_temp(temp)
+    tau = rheology(D)
+    axes[1].plot(shear_rate, tau, label=f'{temp}°C')
+axes[1].set_title('Nanoparticle Response to Temperature Change')
+axes[1].set_xlabel('Shear Rate (1/s)')
+axes[1].legend()
+axes[1].grid()
 
-# -------------------------------
-# SIMULATION CORE MODULE
-# -------------------------------
+# Pressure Response
+for pressure in pressure_values:
+    D = nanoparticle_pressure(pressure)
+    tau = rheology(D)
+    axes[2].plot(shear_rate, tau, label=f'{pressure} psi')
+axes[2].set_title('Nanoparticle Response to Pressure Change')
+axes[2].set_xlabel('Shear Rate (1/s)')
+axes[2].legend()
+axes[2].grid()
 
-def run_simulation(env, np_model, rheology_model, total_time=100, time_steps=500):
-    time = np.linspace(0, total_time, time_steps)
-
-    # Initial NP state
-    S0 = 1.0
-
-    # Integrate nanoparticle kinetics over time
-    S_t = odeint(np_model.kinetics, S0, time, args=(env.temperature,))
-
-    # Calculate yield stress over time
-    yield_stress_t = [rheology_model.yield_stress(S[0]) for S in S_t]
-
-    return time, S_t.flatten(), yield_stress_t
-
-# -------------------------------
-# VISUALIZATION MODULE
-# -------------------------------
-
-def visualize_results(time, np_state, yield_stress):
-    plt.figure(figsize=(12, 5))
-
-    plt.subplot(1, 2, 1)
-    plt.plot(time, np_state, 'b-', marker='o')
-    plt.title("Nanoparticle Expansion Over Time")
-    plt.xlabel("Time (min)")
-    plt.ylabel("Expansion Factor (S)")
-
-    plt.subplot(1, 2, 2)
-    plt.plot(time, yield_stress, 'r-', marker='x')
-    plt.title("Yield Stress Evolution")
-    plt.xlabel("Time (min)")
-    plt.ylabel("Yield Stress (Pa)")
-
-    plt.tight_layout()
-    plt.show()
-
-# -------------------------------
-# MAIN EXECUTION
-# -------------------------------
-
-if __name__ == "__main__":
-    # Initialize environment (example parameters)
-    environment = Environment(depth=3000, pressure=4500, temperature=120, pH=7)
-
-    # Create nanoparticle and fluid rheology models
-    nanoparticle_model = Nanoparticle(rate_constant=0.05, ref_temp=80, max_expansion=1.4)
-    rheology_model = FluidRheology(base_yield_stress=50, consistency_index=0.1, flow_behavior_index=0.8)
-
-    # Run simulation
-    time, np_state, yield_stress = run_simulation(environment, nanoparticle_model, rheology_model)
-
-    # Visualize results
-    visualize_results(time, np_state, yield_stress)
+plt.tight_layout()
+plt.show()
